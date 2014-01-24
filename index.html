@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- meta -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+<title></title>
+
+<!-- css -->
+<link rel="stylesheet" type="text/css" href="assets/styles/normalize-2.1.2.css" />
+<link rel="stylesheet" type="text/css" href="assets/styles/inforControlsCombined-3.2.0.min.css" />
+<link rel="stylesheet/less" type="text/css" href="styles/inforControls.custom.less" />
+<link rel="stylesheet/less" type="text/css" href="main.less" />
+
+<!-- javascript -->
+<script src="assets/scripts/less-1.4.2.min.js"></script>
+<script src="assets/scripts/jquery-1.10.2.min.js"></script>
+<script src="assets/scripts/jquery-ui-1.10.2.custom.min.js"></script>
+<script src="assets/scripts/underscore-1.5.2.min.js"></script>
+<script src="assets/scripts/ractive.dbe2660c1075984e998ed35d2b49600a15b97b4c.js"></script>
+<script src="assets/scripts/ractive-events-hover.js"></script>
+<script src="assets/scripts/ractive-events-keys.js"></script>
+<script src="assets/scripts/inforControlsCombined-3.2.0.min.js"></script>
+<script src="assets/scripts/infor.ux.js"></script>
+<script src="scripts/inforControlsComponents.js"></script>
+
+<style>
+
+</style>
+<script>
+/*! Build your site - v1.0.0 - 2014-01-23 - .
+* Copyright (c) 2014 Han Lin Yap http://yap.nu */
+
+jQuery(function ($) {
+	
+	ractive = new rInforControls({
+		el: 'container',
+		template: '#myTemplate',
+		data: {
+			items: [],
+			moving: null,
+			viewMode: false,
+			saveUrl: function() {
+				var items = this.get('items');
+				return window.URL.createObjectURL( new Blob([JSON.stringify(items)], {type:'text/plain'}) );
+			}
+		}
+	});
+	
+	ractive.on({
+		log: function(event) {
+			console.log(arguments);
+		},
+		
+		dragover: function(event) {
+			// This is required to make drop work
+			// http://stackoverflow.com/questions/8414154/html5-drop-event-doesnt-work-unless-dragover-is-handled
+			event.original.preventDefault();
+		},
+		
+		createTool: function(event, tool) {
+			console.log('createTool: drag start:' + tool);
+			
+			// Type of drag start
+			event.original.dataTransfer.setData('type', 'create');
+			// Tool name
+			event.original.dataTransfer.setData('tool', tool);
+			event.original.dataTransfer.setDragImage(event.node.parentNode, 0, 0);
+		},
+		
+		moveTool: function(event, tool) {
+			console.log('moveTool: drag start:' + tool);
+			
+			// Type of drag start
+			event.original.dataTransfer.setData('type', 'move');
+			// Tool name
+			event.original.dataTransfer.setData('tool', tool);
+			event.original.dataTransfer.setDragImage(event.node.parentNode, 0, 0);
+		},
+		
+		dropzone: function(event) {
+			var self = this;
+			
+			if (event.original.dataTransfer && event.original.dataTransfer.files.length) {
+            	// Load
+                event.original.preventDefault();
+                event.original.stopPropagation();
+                
+                var files = event.original.dataTransfer.files;
+				var reader = new FileReader();
+
+                reader.onload = function(e) {
+                	self.set('items', JSON.parse(e.target.result));
+                };
+                reader.readAsText(files[0]);
+				
+				return;
+	        }
+			
+			// Type of drag start
+			var type = event.original.dataTransfer.getData('type');
+			// Tool name
+			var tool = event.original.dataTransfer.getData('tool');
+			
+			console.log('Drop type: ' + type + ', tool: ' + tool);
+			
+			switch (type) {
+				case 'create':
+					var items = this.get('items');
+					
+					var item = {
+						name: tool,
+						positionX: event.original.pageX - event.node.offsetLeft,
+						positionY: event.original.pageY - event.node.offsetTop,
+						type: tool
+					};
+					
+					switch(tool) {
+						case 'inforTextbox':
+							item.sizeX = 200;
+							item.sizeY = 20;
+							break;
+						case 'inforLabel':
+							item.sizeX = 200;
+							item.sizeY = 20;
+							item.value = 'Label';
+							item.fontSize = 12;
+							break;
+						case 'image':
+							item.sizeX = 200;
+							item.sizeY = 200;
+							break;
+						case 'inforFormButton':
+							item.sizeX = 70;
+							item.sizeY = 25;
+							break;
+						default:
+							console.warn('Tool name do not exists:' + tool);
+					}
+					
+					items.push(item);
+					break;
+				case 'move':
+					break;
+				default:
+					console.warn('Type of drag start do not exists:' + type);	
+			}
+		},
+		
+		activateMove: function(event) {
+			console.log('activateMode');
+			
+			this.set('moving', {
+				context: event.context,
+				mouseX: event.original.pageX,
+				mouseY: event.original.pageY,
+				oldX: event.context.positionX,
+				oldY: event.context.positionY
+			});
+		},
+		
+		doMove: function(event) {
+			var moving = this.get('moving');
+			
+			if (moving) {
+				var diffX = event.original.pageX - moving.mouseX;
+				var diffY = event.original.pageY - moving.mouseY;
+				
+				moving.context.positionX = moving.oldX + diffX;
+				moving.context.positionY = moving.oldY + diffY;
+				this.update();
+			}
+			
+		},
+		
+		deactivateMove: function(event) {
+			console.log('deactivateMode');
+			
+			this.set('moving', null);
+		},
+		
+		itemHover: function(event) {
+    		event.context.hover = event.hover;
+    		this.update();
+		},
+		
+		selectItem: function(event) {
+			console.log('selectItem');
+			
+			var items = this.get('items');
+			items.forEach(function(item) {
+				item.selected = _.isEqual(item, event.context);
+			});
+			this.update();
+		},
+		
+		layerHover: function(event) {
+    		event.context.inspectHover = event.hover;
+    		//this.update();
+		},
+		
+		viewMode: function(event, view) {
+			console.log(view);
+			this.set('viewMode', view);
+			
+			if (view) {
+				var items = this.get('items');
+				location.hash = JSON.stringify(items);
+			} else {
+				this.set('items', JSON.parse( location.hash.substring(1) ));
+			}
+			
+		},
+		
+		fileToBase64: function(event) {
+			var self = this; 
+			
+			if ( event.value && event.value[0] ) {
+		        var reader = new FileReader();
+		        reader.onload = function(e) {
+		        	
+		        	// TODO: not the best solution
+		        	var items = self.get('items');
+		        	items.forEach(function(item) {
+		        		if (item.selected) {
+		        			item.value = e.target.result;
+		        		}
+		        	});
+		       		self.update();
+		        };       
+		        reader.readAsDataURL( event.value[0] );
+		    }
+		}
+	});
+	
+	var externalReceive = false;
+	var postDelay;
+	var firstTime = true;
+	ractive.observe('items', function(newValue, oldValue) {
+		if (firstTime) {
+			firstTime = false;
+			return;
+		}
+		
+		console.log('items have changed' + JSON.stringify(newValue));
+		if (!externalReceive) {
+			if (window.location != window.parent.location) {
+				window.clearTimeout(postDelay);
+				
+				// Calculate delay
+				var throttle = 5*1000*1000; // 1MB
+				var dataLength = JSON.stringify(newValue).length * 8; // bytes
+				var maxFPSinMS = 1000 / (throttle / dataLength);
+				// 20 fps
+				var minFPSinMS = 1000 / 20; 
+				
+				postDelay = window.setTimeout(function() {
+					window.parent.postMessage(newValue, '*');
+				}, Math.max(maxFPSinMS, minFPSinMS));
+			}
+		} else {
+			externalReceive = false;
+		}
+	});
+	
+	window.addEventListener('message', function(event) {
+		console.log('Message received:');
+		externalReceive = true;
+		ractive.set('items', event.data);
+	}, false);
+	
+	
+	try {
+		ractive.set('items', JSON.parse( location.hash.substring(1) ));
+	} catch(e) {}
+});
+</script>
+</head>
+<body>
+<div id='container'></div>
+
+<script id='myTemplate' type='text/ractive'>
+<div id="logo">
+	<h1>Build your site</h1>
+</div>
+<div id="tools">
+	{{^viewMode}}
+	<h3>Components</h3>
+	
+	<div class="box">
+		<div class="tool">
+			<div class="title">Textbox</div>
+			<span class="type">
+				<inforTextbox />
+			</span>
+			<div class="overlay" draggable="true" on-dragstart="createTool:inforTextbox"></div>
+		</div>
+		<div class="tool">
+			<div class="title">Label</div>
+			<span class="type">
+				<label class="inforLabel">Label</label>
+			</span>
+			<div class="overlay" draggable="true" on-dragstart="createTool:inforLabel"></div>
+		</div>
+		
+		<div class="tool">
+			<div class="title">Image</div>
+			<span class="type">
+				
+			</span>
+			<div class="overlay" draggable="true" on-dragstart="createTool:image"></div>
+		</div>
+		
+		<div class="tool">
+			<div class="title">Button</div>
+			<span class="type">
+				<inforFormButton default="default" />
+			</span>
+			<div class="overlay" draggable="true" on-dragstart="createTool:inforFormButton"></div>
+		</div>
+	</div>
+	
+	<hr />
+	
+	<h3>Layers</h3>
+	
+	{{#items:i}}
+	<div on-click="selectItem" on-hover="layerHover" class="layer {{#hover}}hover{{/hover}} {{#selected}}selected{{/selected}}">{{name}}</div>
+	{{/items}}
+	
+	<hr />
+	{{/viewMode}}
+	
+	<h3>Actions</h3>
+	
+	<div class="action">
+		{{^viewMode}}
+		<a href="{{saveUrl()}}" download="MySite.json" class="inforHyperlink">Save</a>
+		
+		<a on-click="viewMode:true" class="inforHyperlink">View</a>
+		{{/viewMode}}
+		
+		{{#viewMode}}
+		<a on-click="viewMode:false" class="inforHyperlink">Edit</a>
+		{{/viewMode}}
+	</div>
+	
+	{{^viewMode}}
+	<hr />
+	
+	{{#items:i}}
+		{{#.selected}}
+		<h3>Selected layer</h3>
+	
+		<strong>{{.name}}</strong>
+		<div class="selectedLayer">
+			{{#.type == 'inforTextbox'}}
+				<div class="title">Text</div>
+				<inforTextbox value="{{.value}}" />
+				
+				<div class="title">Multiline</div>
+				<input type="checkbox" checked="{{.multiline}}" />
+			{{/.type}}
+			
+			{{#.type == 'inforLabel'}}
+				<div class="title">Text</div>
+				<inforTextbox value="{{.value}}" />
+				
+				<div class="title">Font size</div>
+				<inforTextbox value="{{.fontSize}}" />
+			{{/.type}}
+			
+			{{#.type == 'image'}}
+				<inforFileField on-change="fileToBase64" />
+			{{/.type}}
+			
+			{{#.type == 'inforFormButton'}}
+				<div class="title">Text</div>
+				<inforTextbox value="{{.value}}" />
+			{{/.type}}
+			
+			<div class="title">Width</div>
+			<inforTextbox value="{{.sizeX}}" />
+			
+			<div class="title">height</div>
+			<inforTextbox value="{{.sizeY}}" />
+		</div>
+		{{/.selected}}
+	{{/items}}
+	{{/viewMode}}
+</div>
+
+<div id="canvas" class="{{#viewMode}}viewMode{{/viewMode}}" on-mousemove="doMove" on-mouseup="deactivateMove" on-dragenter="log:dragenter" on-dragover="dragover" on-dragleave="log:dragleave" on-drop="dropzone">
+	{{#items:i}}
+		<div class="item" style="top: {{.positionY}}px; left: {{.positionX}}px; width: {{sizeX}}px; height: {{sizeY}}px; z-index: {{i}}">
+			{{#.type == 'inforTextbox'}}
+				{{#.multiline}}
+				<inforTextArea placeholder="{{.value}}" />
+				{{/.multiline}}
+				
+				{{^.multiline}}
+				<inforTextbox placeholder="{{.value}}" />
+				{{/.multiline}}
+			{{/.type}}
+			
+			{{#.type == 'inforLabel'}}
+				<label class="inforLabel noColon" style="font-size: {{(.fontSize / 10)}}em;">{{.value}}</label>
+			{{/.type}}
+			
+			{{#.type == 'image'}}
+				<img src="{{.value}}" class="image"/>
+			{{/.type}}
+			
+			{{#.type == 'inforFormButton'}}
+				<inforFormButton default="default" label="{{.value}}" />
+			{{/.type}}
+			
+			<div on-click="selectItem" on-hover="itemHover" class="overlay {{#inspectHover}}inspectHover{{/inspectHover}}" on-mousedown="activateMove" style="width: {{sizeX}}px; height: {{sizeY}}px;"></div>
+		</div>
+	{{/items}}
+</div>
+</script>
+
+</body>
+</html>
