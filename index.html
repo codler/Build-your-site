@@ -55,21 +55,37 @@ document.addEventListener("DOMContentLoaded", function() {
 		createTool: function(event, tool) {
 			console.log('createTool: drag start:' + tool);
 			
-			// Type of drag start
-			event.original.dataTransfer.setData('type', 'create');
-			// Tool name
-			event.original.dataTransfer.setData('tool', tool);
-			event.original.dataTransfer.setDragImage(event.node.parentNode, 0, 0);
+			var data = {
+				// Type of drag start
+				type: 'create',
+				// Tool name
+				tool: tool
+			};
+
+			event.original.dataTransfer.setData('text', JSON.stringify(data));
+
+			// Feature detect setDragImage method on dataTransfer
+			if ( (window.DataTransfer || window.Clipboard).prototype.setDragImage ) {
+				event.original.dataTransfer.setDragImage(event.node.parentNode, 0, 0);
+			}
 		},
 		
 		moveTool: function(event, tool) {
 			console.log('moveTool: drag start:' + tool);
 			
-			// Type of drag start
-			event.original.dataTransfer.setData('type', 'move');
-			// Tool name
-			event.original.dataTransfer.setData('tool', tool);
-			event.original.dataTransfer.setDragImage(event.node.parentNode, 0, 0);
+			var data = {
+				// Type of drag start
+				type: 'move',
+				// Tool name
+				tool: tool
+			};
+
+			event.original.dataTransfer.setData('text', JSON.stringify(data));
+
+			// Feature detect setDragImage method on dataTransfer
+			if ( (window.DataTransfer || window.Clipboard).prototype.setDragImage ) {
+				event.original.dataTransfer.setDragImage(event.node.parentNode, 0, 0);
+			}
 		},
 		
 		dropzone: function(event) {
@@ -90,11 +106,13 @@ document.addEventListener("DOMContentLoaded", function() {
 				
 				return;
 	        }
+
+			var data = JSON.parse(event.original.dataTransfer.getData('text'));
 			
 			// Type of drag start
-			var type = event.original.dataTransfer.getData('type');
+			var type = data.type;
 			// Tool name
-			var tool = event.original.dataTransfer.getData('tool');
+			var tool = data.tool;
 			
 			console.log('Drop type: ' + type + ', tool: ' + tool);
 			
@@ -241,6 +259,17 @@ document.addEventListener("DOMContentLoaded", function() {
 		        };       
 		        reader.readAsDataURL( event.value[0] );
 		    }
+		},
+
+		downloadFallback: function(event) {
+			// Feature detect download attribute
+			if (!('download' in document.createElement("a"))) {
+				// For IE10+
+				if (window.navigator.msSaveOrOpenBlob) {
+					var items = this.get('items');
+					window.navigator.msSaveOrOpenBlob( new Blob([JSON.stringify(items)], {type:'text/plain'}), 'MySite.json');
+				}
+			}
 		}
 	});
 	
@@ -346,7 +375,7 @@ document.addEventListener("DOMContentLoaded", function() {
 	
 	<div class="action">
 		{{^viewMode}}
-		<a href="{{saveUrl()}}" download="MySite.json" class="inforHyperlink">Save</a>
+		<a href="{{saveUrl()}}" download="MySite.json" on-click="downloadFallback" class="inforHyperlink">Save</a>
 		
 		<a on-click="viewMode:true" class="inforHyperlink">View</a>
 		{{/viewMode}}
