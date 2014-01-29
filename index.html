@@ -91,11 +91,12 @@ document.addEventListener("DOMContentLoaded", function() {
 		dropzone: function(event) {
 			var self = this;
 			
+			event.original.preventDefault();
+			event.original.stopPropagation();
+			
 			if (event.original.dataTransfer && event.original.dataTransfer.files.length) {
-            	// Load
-                event.original.preventDefault();
-                event.original.stopPropagation();
-                
+				// Drop files into browser
+				    
                 var files = event.original.dataTransfer.files;
 				var reader = new FileReader();
 
